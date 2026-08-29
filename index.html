@@ -324,9 +324,17 @@
       </button>
     </div>
 
-    <button class="main-btn" onclick="requestRide()">
-      🚗 Request Ride
-    </button>
+    <script>
+function requestRide() {
+  localStorage.setItem("rydoRideRequested", "yes");
+
+  document.getElementById("requestBtn").textContent = "Ride Required";
+  document.getElementById("requestBtn").disabled = true;
+
+  alert("🚗 Ride requested successfully!");
+}
+    </script>
+  
 
     <div id="passengerStatus" class="status hidden"></div>
 
