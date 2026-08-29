@@ -324,9 +324,13 @@
       </button>
     </div>
 
-    <script>
-function requestRide() {
-  localStorage.setItem("rydoRideRequested", "yes");
+    <button id="requestBtn" class="main-btn" onclick="requestRide()">
+  🚗 Request Ride
+</button>
+
+<button id="cancelBtn" class="main-btn" onclick="cancelRide()" style="display:none;">
+  ❌ Cancel Ride
+</button>
 
   document.getElementById("requestBtn").textContent = "Ride Required";
   document.getElementById("requestBtn").disabled = true;
