@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ride Booking App - Supabase Prototype</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Leaflet CSS & JS for Free Interactive Maps -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 flex flex-col">
+
+  <!-- Header / Navbar -->
+  <header class="bg-indigo-600 text-white p-4 shadow-md flex justify-between items-center">
+    <h1 class="text-xl font-bold tracking-wide">⚡ RideApp</h1>
+    <div id="authStatus" class="text-sm font-medium">Not Logged In</div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-6xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Left Panel: Auth & Booking Controls -->
+    <div class="space-y-6">
+
+      <!-- Section 1: Authentication -->
+      <div id="authCard" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <h2 class="text-lg font-bold mb-4">Passenger Auth</h2>
+        <div class="space-y-3">
+          <input type="email" id="email" placeholder="Email" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+          <input type="password" id="password" placeholder="Password" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+          <div class="flex gap-2 pt-2">
+            <button onclick="handleRegister()" class="flex-1 bg-indigo-50 text-indigo-600 font-semibold py-2 rounded-lg hover:bg-indigo-100 text-sm">Register</button>
+            <button onclick="handleLogin()" class="flex-1 bg-indigo-600 text-white font-semibold py-2 rounded-lg hover:bg-indigo-700 text-sm">Log In</button>
+          </div>
+          <button onclick="handleLogout()" class="w-full text-xs text-red-500 hover:underline pt-2">Sign Out</button>
+        </div>
+      </div>
+
+      <!-- Section 2: Location & Booking -->
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <h2 class="text-lg font-bold mb-4">Book a Ride</h2>
+        
+        <!-- Pickup Controls -->
+        <div class="mb-4">
+          <label class="block text-xs font-semibold text-slate-500 mb-1">PICKUP LOCATION</label>
+          <div class="grid grid-cols-2 gap-2 mb-2">
+            <input type="number" step="any" id="pickupLat" placeholder="Lat (e.g. 27.7172)" class="px-3 py-1.5 border rounded-lg text-sm" />
+            <input type="number" step="any" id="pickupLng" placeholder="Lng (e.g. 85.3240)" class="px-3 py-1.5 border rounded-lg text-sm" />
+          </div>
+          <button onclick="useCurrentLocation()" class="w-full bg-slate-100 text-slate-700 text-xs py-2 rounded-lg font-semibold hover:bg-slate-200">📍 Use My GPS Location</button>
+        </div>
+
+        <!-- Dropoff Controls -->
+        <div class="mb-4">
+          <label class="block text-xs font-semibold text-slate-500 mb-1">DROPOFF LOCATION (MANUAL)</label>
+          <div class="grid grid-cols-2 gap-2">
+            <input type="number" step="any" id="dropLat" placeholder="Lat (e.g. 27.6710)" class="px-3 py-1.5 border rounded-lg text-sm" />
+            <input type="number" step="any" id="dropLng" placeholder="Lng (e.g. 85.3128)" class="px-3 py-1.5 border rounded-lg text-sm" />
+          </div>
+        </div>
+
+        <!-- Fare Calculation & Actions -->
+        <button onclick="calculateFare()" class="w-full bg-emerald-600 text-white font-semibold py-2 rounded-lg hover:bg-emerald-700 text-sm mb-3">Calculate Fare</button>
+        
+        <div id="fareDisplay" class="hidden p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-center mb-4">
+          <span class="text-xs text-emerald-700 block">Estimated Distance & Fare</span>
+          <span id="fareAmount" class="text-xl font-bold text-emerald-800">$0.00</span>
+          <span id="distanceAmount" class="text-xs text-emerald-600 block">(0 km)</span>
+        </div>
+
+        <button onclick="bookRide()" class="w-full bg-indigo-600 text-white font-semibold py-3 rounded-lg hover:bg-indigo-700 text-sm shadow-md">Confirm & Request Ride</button>
+      </div>
+
+      <!-- Section 3: Driver Simulation Controls (For Testing) -->
+      <div class="bg-slate-800 text-white p-6 rounded-xl shadow-sm">
+        <h2 class="text-sm font-bold tracking-wide uppercase text-slate-400 mb-3">Driver Location Simulator</h2>
+        <p class="text-xs text-slate-300 mb-3">Simulate a driver moving towards the pickup point in real time.</p>
+        <button onclick="startDriverSimulation()" class="w-full bg-amber-500 text-slate-900 font-bold py-2 rounded-lg hover:bg-amber-400 text-xs uppercase tracking-wider">Start Moving Driver</button>
+      </div>
+
+    </div>
+
+    <!-- Right Panel: Interactive Map & Live Tracking -->
+    <div class="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col">
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="text-lg font-bold">Live Map & Dispatch</h2>
+        <span id="rideStatusBadge" class="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 font-semibold">Idle</span>
+      </div>
+      
+      <!-- Leaflet Map Container -->
+      <div id="map" class="w-full flex-1 min-h-[400px] rounded-lg border border-slate-200 z-0"></div>
+    </div>
+
+  </main>
+
+  <script>
+    // -------------------------------------------------------------
+    // 1. SUPABASE INITIALIZATION
+    // -------------------------------------------------------------
+    // REPLACE THESE WITH YOUR ACTUAL SUPABASE CREDENTIALS
+    const SUPABASE_URL = "https://YOUR_SUPABASE_PROJECT_ID.supabase.co";
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // -------------------------------------------------------------
+    // 2. MAP SETUP (Leaflet.js)
+    // -------------------------------------------------------------
+    // Default center (Kathmandu/Global default; updates on GPS locate)
+    const map = L.map('map').setView([27.7172, 85.3240], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    let pickupMarker, dropoffMarker, driverMarker;
+
+    // Custom Icons
+    const driverIcon = L.icon({
+      iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202092.png',
+      iconSize: [32, 32]
+    });
+
+    // -------------------------------------------------------------
+    // 3. AUTHENTICATION LOGIC
+    // -------------------------------------------------------------
+    async function handleRegister() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) alert(error.message);
+      else alert('Registration successful! Check your email to confirm.');
+    }
+
+    async function handleLogin() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        alert(error.message);
+      } else {
+        document.getElementById('authStatus').innerText = `Logged in: ${data.user.email}`;
+        alert('Successfully logged in!');
+      }
+    }
+
+    async function handleLogout() {
+      await supabase.auth.signOut();
+      document.getElementById('authStatus').innerText = 'Not Logged In';
+      alert('Logged out.');
+    }
+
+    // -------------------------------------------------------------
+    // 4. GPS & LOCATION TRACKING
+    // -------------------------------------------------------------
+    function useCurrentLocation() {
+      if (!navigator.geolocation) {
+        alert('Geolocation is not supported by your browser.');
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          
+          document.getElementById('pickupLat').value = lat;
+          document.getElementById('pickupLng').value = lng;
+
+          if (pickupMarker) map.removeLayer(pickupMarker);
+          pickupMarker = L.marker([lat, lng]).addTo(map).bindPopup("Pickup Location").openPopup();
+          map.setView([lat, lng], 14);
+        },
+        () => alert('Unable to retrieve your location.')
+      );
+    }
+
+    // -------------------------------------------------------------
+    // 5. FARE CALCULATION ENGINE
+    // -------------------------------------------------------------
+    // Haversine formula to compute straight-line distance (km)
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371; 
+      const dLat = (lat2 - lat1) * (Math.PI / 180);
+      const dLon = (lon2 - lon1) * (Math.PI / 180);
+      const a = 
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function calculateFare() {
+      const pLat = parseFloat(document.getElementById('pickupLat').value);
+      const pLng = parseFloat(document.getElementById('pickupLng').value);
+      const dLat = parseFloat(document.getElementById('dropLat').value);
+      const dLng = parseFloat(document.getElementById('dropLng').value);
+
+      if (!pLat || !pLng || !dLat || !dLng) {
+        alert('Please fill in both pickup and dropoff coordinates.');
+        return;
+      }
+
+      // Update dropoff map marker
+      if (dropoffMarker) map.removeLayer(dropoffMarker);
+      dropoffMarker = L.marker([dLat, dLng]).addTo(map).bindPopup("Dropoff Location");
+
+      // Zoom map to fit both markers
+      const bounds = L.latLngBounds([[pLat, pLng], [dLat, dLng]]);
+      map.fitBounds(bounds, { padding: [50, 50] });
+
+      const distance = calculateDistance(pLat, pLng, dLat, dLng);
+      
+      // Basic Fare Engine: Base Fee ($2.00) + $1.50 per km
+      const baseFare = 2.00;
+      const ratePerKm = 1.50;
+      const totalFare = baseFare + (distance * ratePerKm);
+
+      document.getElementById('fareAmount').innerText = `$${totalFare.toFixed(2)}`;
+      document.getElementById('distanceAmount').innerText = `(${distance.toFixed(2)} km)`;
+      document.getElementById('fareDisplay').classList.remove('hidden');
+    }
+
+    // -------------------------------------------------------------
+    // 6. RIDE BOOKING & SUPABASE PERSISTENCE
+    // -------------------------------------------------------------
+    async function bookRide() {
+      const pLat = parseFloat(document.getElementById('pickupLat').value);
+      const pLng = parseFloat(document.getElementById('pickupLng').value);
+      const dLat = parseFloat(document.getElementById('dropLat').value);
+      const dLng = parseFloat(document.getElementById('dropLng').value);
+      const fareText = document.getElementById('fareAmount').innerText.replace('$', '');
+
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        alert('Please log in before requesting a ride.');
+        return;
+      }
+
+      // Insert Ride Record into Supabase
+      const { data, error } = await supabase
+        .from('rides')
+        .insert([
+          { 
+            rider_id: user.id, 
+            status: 'requested',
+            estimated_fare: parseFloat(fareText),
+            // WKT format for PostGIS POINT(Longitude Latitude)
+            pickup_location: `POINT(${pLng} ${pLat})`,
+            dropoff_location: `POINT(${dLng} ${dLat})`
+          }
+        ]);
+
+      if (error) {
+        console.error(error);
+        alert('Error requesting ride: ' + error.message);
+      } else {
+        document.getElementById('rideStatusBadge').innerText = 'Searching for Driver...';
+        document.getElementById('rideStatusBadge').className = 'text-xs px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 font-semibold';
+        alert('Ride requested successfully! Listening for driver updates.');
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 7. DRIVER GPS SIMULATION & REAL-TIME TRACKING
+    // -------------------------------------------------------------
+    function startDriverSimulation() {
+      const pLat = parseFloat(document.getElementById('pickupLat').value) || 27.7172;
+      const pLng = parseFloat(document.getElementById('pickupLng').value) || 85.3240;
+
+      // Start driver offset from pickup location
+      let currentDriverLat = pLat - 0.01;
+      let currentDriverLng = pLng - 0.01;
+
+      if (driverMarker) map.removeLayer(driverMarker);
+      driverMarker = L.marker([currentDriverLat, currentDriverLng], { icon: driverIcon }).addTo(map).bindPopup("Driver");
+
+      document.getElementById('rideStatusBadge').innerText = 'Driver En Route';
+      document.getElementById('rideStatusBadge').className = 'text-xs px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 font-semibold';
+
+      // Move driver step-by-step toward pickup every 1 shadow step
+      const interval = setInterval(() => {
+        currentDriverLat += (pLat - currentDriverLat) * 0.1;
+        currentDriverLng += (pLng - currentDriverLng) * 0.1;
+
+        driverMarker.setLatLng([currentDriverLat, currentDriverLng]);
+
+        // Stop simulation when driver is very close
+        if (Math.abs(pLat - currentDriverLat) < 0.0002 && Math.abs(pLng - currentDriverLng) < 0.0002) {
+          clearInterval(interval);
+          document.getElementById('rideStatusBadge').innerText = 'Driver Arrived';
+          document.getElementById('rideStatusBadge').className = 'text-xs px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-semibold';
+        }
+      }, 1000);
+    }
+  </script>
+</body>
+  </html>
+            
