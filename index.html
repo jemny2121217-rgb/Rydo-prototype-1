@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoRide Platform</title>
+
+    <!-- Leaflet CSS & JS (Free, OpenSource Interactive Maps) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        :root {
+            --primary: #10b981;
+            --primary-dark: #059669;
+            --dark: #1f2937;
+            --light: #f3f4f6;
+            --white: #ffffff;
+            --gray: #9ca3af;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        body, html {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        #app-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+        }
+
+        /* Sidebar Styling */
+        .sidebar {
+            width: 420px;
+            height: 100%;
+            background: var(--white);
+            box-shadow: 4px 0 15px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .header {
+            padding: 20px;
+            background: var(--dark);
+            color: var(--white);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.4rem;
+            color: var(--primary);
+        }
+
+        .user-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .content {
+            padding: 20px;
+            flex: 1;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+            color: var(--dark);
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 8px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: var(--primary);
+        }
+
+        .btn-gps {
+            background: #e5e7eb;
+            border: none;
+            padding: 0 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+
+        .btn-gps:hover {
+            background: #d1d5db;
+        }
+
+        /* Vehicle Options */
+        .vehicle-options {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .vehicle-card {
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 12px 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .vehicle-card.selected {
+            border-color: var(--primary);
+            background: #ecfdf5;
+        }
+
+        .vehicle-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .vehicle-price {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--primary-dark);
+            margin-top: 4px;
+        }
+
+        /* Payment Options */
+        .payment-options {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .pay-option {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .pay-option.selected {
+            border-color: var(--dark);
+            background: var(--dark);
+            color: var(--white);
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 14px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .btn-submit:hover {
+            background: var(--primary-dark);
+        }
+
+        /* Map Container */
+        #map {
+            flex: 1;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Modals */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            width: 360px;
+            position: relative;
+        }
+
+        .modal-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--gray);
+        }
+
+        .tab.active {
+            color: var(--primary);
+            border-bottom: 2px solid var(--primary);
+        }
+
+        .status-box {
+            display: none;
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+            font-size: 0.9rem;
+        }
+
+        .suggestions {
+            position: absolute;
+            background: white;
+            border: 1px solid #ccc;
+            width: 100%;
+            max-height: 150px;
+            overflow-y: auto;
+            z-index: 2000;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .suggestion-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        
+        .suggestion-item:hover {
+            background: #f3f4f6;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="header">
+            <h1>GoRide</h1>
+            <button class="user-btn" id="authBtn" onclick="openAuthModal()">Login</button>
+        </div>
+
+        <div class="content">
+            <!-- Pickup Input -->
+            <div class="form-group">
+                <label>Pickup Location</label>
+                <div class="input-wrapper">
+                    <input type="text" id="pickupInput" placeholder="Enter pickup address" oninput="handleSearch('pickup')">
+                    <button class="btn-gps" onclick="getCurrentLocation()">📍 GPS</button>
+                </div>
+                <div id="pickupSuggestions" class="suggestions"></div>
+            </div>
+
+            <!-- Destination Input -->
+            <div class="form-group">
+                <label>Destination (Or Click Map)</label>
+                <div class="input-wrapper">
+                    <input type="text" id="dropoffInput" placeholder="Enter destination address" oninput="handleSearch('dropoff')">
+                </div>
+                <div id="dropoffSuggestions" class="suggestions"></div>
+            </div>
+
+            <!-- Vehicle Selection -->
+            <label style="font-size: 0.85rem; font-weight: 700; color: var(--dark);">Select Vehicle</label>
+            <div class="vehicle-options">
+                <div class="vehicle-card selected" id="opt-bike" onclick="selectVehicle('bike')">
+                    <div style="font-size: 1.5rem;">🏍️</div>
+                    <div class="vehicle-title">Bike</div>
+                    <div class="vehicle-price" id="price-bike">$0.00</div>
+                </div>
+                <div class="vehicle-card" id="opt-tuktuk" onclick="selectVehicle('tuktuk')">
+                    <div style="font-size: 1.5rem;">🛺</div>
+                    <div class="vehicle-title">TukTuk</div>
+                    <div class="vehicle-price" id="price-tuktuk">$0.00</div>
+                </div>
+                <div class="vehicle-card" id="opt-car" onclick="selectVehicle('car')">
+                    <div style="font-size: 1.5rem;">🚗</div>
+                    <div class="vehicle-title">Car</div>
+                    <div class="vehicle-price" id="price-car">$0.00</div>
+                </div>
+            </div>
+
+            <!-- Payment Options -->
+            <label style="font-size: 0.85rem; font-weight: 700; color: var(--dark);">Payment Method</label>
+            <div class="payment-options">
+                <div class="pay-option selected" id="pay-cash" onclick="selectPayment('cash')">💵 Cash</div>
+                <div class="pay-option" id="pay-online" onclick="selectPayment('online')">💳 Online</div>
+            </div>
+
+            <button class="btn-submit" onclick="requestRide()">Book Ride Now</button>
+
+            <div id="statusBox" class="status-box"></div>
+        </div>
+    </div>
+
+    <!-- Live Map -->
+    <div id="map"></div>
+</div>
+
+<!-- Login / Register Modal -->
+<div class="modal" id="authModal">
+    <div class="modal-content">
+        <div class="modal-tabs">
+            <div class="tab active" id="loginTab" onclick="switchAuthTab('login')">Login</div>
+            <div class="tab" id="regTab" onclick="switchAuthTab('reg')">Register</div>
+        </div>
+
+        <form id="loginForm" onsubmit="handleAuth(event, 'login')">
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" required id="loginEmail" placeholder="user@example.com">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" required id="loginPass">
+            </div>
+            <button type="submit" class="btn-submit">Login</button>
+        </form>
+
+        <form id="regForm" onsubmit="handleAuth(event, 'reg')" style="display: none;">
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" required id="regName" placeholder="John Doe">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" required id="regEmail" placeholder="user@example.com">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" required id="regPass">
+            </div>
+            <button type="submit" class="btn-submit">Register</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    // --- MAP INITIALIZATION (Leaflet OpenStreetMap) ---
+    const map = L.map('map').setView([27.7172, 85.3240], 13); // Default view setup
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // App State Variables
+    let currentUser = null;
+    let pickupCoords = null;
+    let dropoffCoords = null;
+    let selectedVehicle = 'bike';
+    let paymentMethod = 'cash';
+    let distanceKm = 0;
+
+    let pickupMarker = null;
+    let dropoffMarker = null;
+    let routeLine = null;
+
+    // Pricing Rates ($ Base + $ Per KM)
+    const rates = {
+        bike: { base: 1.50, perKm: 0.50 },
+        tuktuk: { base: 2.50, perKm: 0.80 },
+        car: { base: 4.00, perKm: 1.50 }
+    };
+
+    // Click on map to set Destination
+    map.on('click', function(e) {
+        dropoffCoords = [e.latlng.lat, e.latlng.lng];
+        setMarker('dropoff', dropoffCoords);
+        reverseGeocode('dropoff', e.latlng.lat, e.latlng.lng);
+        calculateRoute();
+    });
+
+    // --- GEOLOCATION LOGIC ---
+    function getCurrentLocation() {
+        if (!navigator.geolocation) {
+            alert('Geolocation is not supported by your browser.');
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition((position) => {
+            const { latitude, longitude } = position.coords;
+            pickupCoords = [latitude, longitude];
+
+            setMarker('pickup', pickupCoords);
+            map.setView(pickupCoords, 15);
+            reverseGeocode('pickup', latitude, longitude);
+            calculateRoute();
+        }, () => {
+            alert('Unable to retrieve location via GPS.');
+        });
+    }
+
+    // Geocoding Reverse Search (OSM Nominatim)
+    async function reverseGeocode(type, lat, lon) {
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+            const data = await res.json();
+            if (data && data.display_name) {
+                document.getElementById(type + 'Input').value = data.display_name.split(',').slice(0, 3).join(',');
+            }
+        } catch(e) {
+            document.getElementById(type + 'Input').value = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+        }
+    }
+
+    // Geocoding Forward Search Autocomplete
+    async function handleSearch(type) {
+        const query = document.getElementById(type + 'Input').value;
+        const suggestionsBox = document.getElementById(type + 'Suggestions');
+        
+        if (query.length < 3) {
+            suggestionsBox.innerHTML = '';
+            return;
+        }
+
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=4`);
+            const data = await res.json();
+            
+            suggestionsBox.innerHTML = '';
+            data.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'suggestion-item';
+                div.innerText = item.display_name;
+                div.onclick = () => {
+                    document.getElementById(type + 'Input').value = item.display_name.split(',').slice(0, 3).join(',');
+                    suggestionsBox.innerHTML = '';
+                    const coords = [parseFloat(item.lat), parseFloat(item.lon)];
+                    
+                    if (type === 'pickup') {
+                        pickupCoords = coords;
+                        setMarker('pickup', pickupCoords);
+                    } else {
+                        dropoffCoords = coords;
+                        setMarker('dropoff', dropoffCoords);
+                    }
+                    map.setView(coords, 14);
+                    calculateRoute();
+                };
+                suggestionsBox.appendChild(div);
+            });
+        } catch(e) {
+            console.error(e);
+        }
+    }
+
+    function setMarker(type, coords) {
+        if (type === 'pickup') {
+            if (pickupMarker) map.removeLayer(pickupMarker);
+            pickupMarker = L.marker(coords).addTo(map).bindPopup('<b>Pickup</b>').openPopup();
+        } else {
+            if (dropoffMarker) map.removeLayer(dropoffMarker);
+            dropoffMarker = L.marker(coords).addTo(map).bindPopup('<b>Destination</b>').openPopup();
+        }
+    }
+
+    // Route calculation using OpenSource Routing Machine (OSRM)
+    async function calculateRoute() {
+        if (!pickupCoords || !dropoffCoords) return;
+
+        try {
+            const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${pickupCoords[1]},${pickupCoords[0]};${dropoffCoords[1]},${dropoffCoords[0]}?overview=full&geometries=geojson`);
+            const data = await res.json();
+
+            if (!data.routes || data.routes.length === 0) return;
+
+            const routeData = data.routes[0];
+            distanceKm = (routeData.distance / 1000).toFixed(2);
+
+            const coordinates = routeData.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+
+            if (routeLine) map.removeLayer(routeLine);
+
+            routeLine = L.polyline(coordinates, { color: '#10b981', weight: 6 }).addTo(map);
+            map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+
+            updateFareCalculations();
+        } catch(e) {
+            console.error("Routing error:", e);
+        }
+    }
+
+    // Auto calculate fares
+    function updateFareCalculations() {
+        if (distanceKm === 0) return;
+
+        ['bike', 'tuktuk', 'car'].forEach(type => {
+            const total = rates[type].base + (distanceKm * rates[type].perKm);
+            document.getElementById(`price-${type}`).innerText = `$${total.toFixed(2)}`;
+        });
+    }
+
+    function selectVehicle(type) {
+        selectedVehicle = type;
+        document.querySelectorAll('.vehicle-card').forEach(el => el.classList.remove('selected'));
+        document.getElementById(`opt-${type}`).classList.add('selected');
+    }
+
+    function selectPayment(method) {
+        paymentMethod = method;
+        document.querySelectorAll('.pay-option').forEach(el => el.classList.remove('selected'));
+        document.getElementById(`pay-${method}`).classList.add('selected');
+    }
+
+    // Request Ride Functionality
+    function requestRide() {
+        if (!currentUser) {
+            alert('Please login to book a ride.');
+            openAuthModal();
+            return;
+        }
+
+        if (!pickupCoords || !dropoffCoords) {
+            alert('Please select both pickup location and destination.');
+            return;
+        }
+
+        const fare = (rates[selectedVehicle].base + (distanceKm * rates[selectedVehicle].perKm)).toFixed(2);
+        const statusBox = document.getElementById('statusBox');
+        
+        statusBox.style.display = 'block';
+        statusBox.style.background = '#eff6ff';
+        statusBox.style.color = '#1e40af';
+        statusBox.innerHTML = `Searching for nearby <b>${selectedVehicle.toUpperCase()}</b> driver...<br>Fare: <b>$${fare}</b> (${paymentMethod.toUpperCase()})`;
+
+        setTimeout(() => {
+            statusBox.style.background = '#ecfdf5';
+            statusBox.style.color = '#065f46';
+            statusBox.innerHTML = `✔ <b>Driver Confirmed!</b><br>Driver is arriving in 3 mins.<br>Vehicle: ${selectedVehicle.toUpperCase()} • Distance: ${distanceKm} km.`;
+        }, 3000);
+    }
+
+    // Modal & Authentication Logic
+    function openAuthModal() {
+        document.getElementById('authModal').style.display = 'flex';
+    }
+
+    function switchAuthTab(tab) {
+        if (tab === 'login') {
+            document.getElementById('loginTab').classList.add('active');
+            document.getElementById('regTab').classList.remove('active');
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('regForm').style.display = 'none';
+        } else {
+            document.getElementById('regTab').classList.add('active');
+            document.getElementById('loginTab').classList.remove('active');
+            document.getElementById('regForm').style.display = 'block';
+            document.getElementById('loginForm').style.display = 'none';
+        }
+    }
+
+    function handleAuth(e, type) {
+        e.preventDefault();
+        const email = type === 'login' ? document.getElementById('loginEmail').value : document.getElementById('regEmail').value;
+        const name = type === 'reg' ? document.getElementById('regName').value : email.split('@')[0];
+
+        currentUser = { name, email };
+        document.getElementById('authBtn').innerText = name;
+        document.getElementByI
